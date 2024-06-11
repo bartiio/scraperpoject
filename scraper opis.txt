@@ -1,0 +1,86 @@
+### Notatka: Opis działania programu i funkcji
+
+#### Ogólny opis
+Ten program to aplikacja webowa oparta na Flasku, która umożliwia scrapowanie danych (obrazków, URL-i artykułów oraz tekstów przepisów) ze strony `https://aniagotuje.pl/` i zapisywanie ich do bazy danych Firestore. Program wykorzystuje zarówno wieloprocesowość jak i asynchroniczne I/O do efektywnego przetwarzania zadań scrapowania.
+
+#### Struktura aplikacji
+1. **Flask**: Używany do stworzenia serwera webowego i obsługi routingu.
+2. **BeautifulSoup**: Do parsowania kodu HTML.
+3. **aiohttp**: Do asynchronicznych żądań HTTP.
+4. **multiprocessing**: Do równoległego przetwarzania zadań.
+5. **Firebase Admin SDK**: Do integracji z bazą danych Firestore.
+
+#### Funkcje programu
+
+1. **fetch(session, url)**:
+   - **Opis**: Asynchroniczna funkcja do wykonywania żądania HTTP i pobierania treści strony.
+   - **Parametry**: `session` (sesja aiohttp), `url` (URL strony).
+   - **Zwraca**: Tekst odpowiedzi HTTP.
+
+2. **scrape_images(shared_dict)**:
+   - **Opis**: Asynchroniczna funkcja scrapująca obrazki i URL-e artykułów ze strony głównej.
+   - **Parametry**: `shared_dict` (słownik współdzielony do przechowywania wyników).
+   - **Zadania**:
+     - Pobiera HTML strony głównej.
+     - Parsuje HTML, aby znaleźć tagi `<img>` i rodzicielskie tagi `<a>`.
+     - Zapisuje URL-e obrazków i artykułów do `shared_dict`.
+
+3. **scrape_urls(shared_dict)**:
+   - **Opis**: Asynchroniczna funkcja scrapująca URL-e artykułów ze strony głównej.
+   - **Parametry**: `shared_dict` (słownik współdzielony do przechowywania wyników).
+   - **Zadania**:
+     - Pobiera HTML strony głównej.
+     - Parsuje HTML, aby znaleźć wszystkie linki `<a>`.
+     - Filtruje linki zaczynające się od `/przepis/` i zapisuje je do `shared_dict`.
+
+4. **scrape_text_from_urls(urls, shared_dict, key)**:
+   - **Opis**: Asynchroniczna funkcja scrapująca teksty przepisów z podanych URL-i.
+   - **Parametry**: `urls` (lista URL-i), `shared_dict` (słownik współdzielony do przechowywania wyników), `key` (klucz dla zapisania wyników w `shared_dict`).
+   - **Zadania**:
+     - Dla każdej URL tworzy zadanie asynchronicznego pobrania strony.
+     - Parsuje HTML każdej strony, aby znaleźć kroki przepisu i zapisuje je do `shared_dict`.
+
+5. **run_scrape_images(shared_dict)**:
+   - **Opis**: Funkcja uruchamiająca `scrape_images` w kontekście asyncio.
+   - **Parametry**: `shared_dict` (słownik współdzielony do przechowywania wyników).
+
+6. **run_scrape_urls(shared_dict)**:
+   - **Opis**: Funkcja uruchamiająca `scrape_urls` w kontekście asyncio.
+   - **Parametry**: `shared_dict` (słownik współdzielony do przechowywania wyników).
+
+7. **run_scrape_text_from_urls(urls, shared_dict, key)**:
+   - **Opis**: Funkcja uruchamiająca `scrape_text_from_urls` w kontekście asyncio.
+   - **Parametry**: `urls` (lista URL-i), `shared_dict` (słownik współdzielony do przechowywania wyników), `key` (klucz dla zapisania wyników w `shared_dict`).
+
+8. **index()**:
+   - **Opis**: Obsługuje żądanie GET na główną stronę aplikacji (`/`).
+   - **Zwraca**: Szablon `index.html`.
+
+9. **firebase_data()**:
+   - **Opis**: Pobiera dane z Firestore i renderuje je na stronie `/firebase_data`.
+   - **Zwraca**: Szablon `firebase_data.html` z danymi z Firestore.
+
+10. **scrap()**:
+    - **Opis**: Obsługuje żądanie POST na `/scrap` do uruchomienia procesu scrapowania.
+    - **Zadania**:
+      - Tworzy menedżera do współdzielenia danych między procesami.
+      - Uruchamia procesy do scrapowania obrazków i URL-i artykułów.
+      - Dzieli URL-e na części i uruchamia równoległe procesy do scrapowania tekstów przepisów.
+      - Łączy wyniki i zapisuje je do Firestore.
+    - **Zwraca**: JSON z wynikiem scrapowania.
+
+11. **data()**:
+    - **Opis**: Obsługuje żądanie GET na `/data`, renderując wyniki scrapowania na stronie.
+    - **Parametry**: `shared_data` (dane scrapowane).
+    - **Zwraca**: Szablon `data.html` z obrazkami, URL-ami artykułów i tekstami przepisów.
+
+#### Wyjaśnienie działania aplikacji
+1. **Strona główna**: Użytkownik może uruchomić proces scrapowania przez interfejs użytkownika.
+2. **Scrapowanie**: Proces scrapowania jest uruchamiany jako żądanie POST do `/scrap`.
+   - Procesy do scrapowania obrazków i URL-i artykułów są uruchamiane równolegle.
+   - URL-e są dzielone na części i każdy fragment jest przetwarzany w oddzielnym procesie.
+   - Asynchroniczne funkcje w ramach każdego procesu umożliwiają szybkie i efektywne pobieranie danych.
+3. **Zapisywanie danych**: Wyniki są zapisywane do Firestore.
+4. **Prezentacja danych**: Dane są wyświetlane na stronie `/firebase_data` lub `/data`.
+
+Dzięki użyciu `multiprocessing` i `asyncio` aplikacja jest zoptymalizowana pod kątem szybkości i efektywności, wykorzystując dostępne zasoby sprzętowe i jednocześnie minimalizując czas oczekiwania na operacje sieciowe.
